@@ -33,11 +33,13 @@ class DecisionTree():
         tn = TreeNode(best_col, best_col_val, best_linear_regressions[0], best_linear_regressions[1])
 
         left = best_split[0]
-        left_x = left.drop(columns=[5])
-        left_y = left[5]
+        target_col = left.columns[-1]
+
+        left_x = left.drop(columns=[target_col])
+        left_y = left[target_col]
         right = best_split[1]
-        right_x = right.drop(columns=[5])
-        right_y = right[5]
+        right_x = right.drop(columns=[target_col])
+        right_y = right[target_col]
 
         left_tn = self.split(left_x, left_y)
         right_tn = self.split(right_x, right_y)
@@ -65,15 +67,8 @@ class DecisionTree():
                     len(right) < self.min_elememnts_in_node):
                     continue
 
-                left_lr = self.linear_regression_model()
-                left_lr.fit(left.drop(columns = [5]), left[5])
-                preds = left_lr.predict(left.drop(columns = [5]))
-                left_mse = mean_squared_error(preds, left[5])
-
-                right_lr = self.linear_regression_model()
-                right_lr.fit(right.drop(columns=[5]), right[5])
-                preds = right_lr.predict(right.drop(columns=[5]))
-                right_mse = mean_squared_error(preds, right[5])
+                left_lr, left_mse = self.fit_lr_model(left)
+                right_lr, right_mse = self.fit_lr_model(right)
 
                 weighted_mse = (len(right) * right_mse + len(left) * left_mse) / len (dataset)
 
@@ -85,7 +80,13 @@ class DecisionTree():
                     best_linear_regressions = (left_lr, right_lr)
         return best_split, best_col, best_col_val, best_linear_regressions
 
-
+    def fit_lr_model(self, elements):
+        lr_model = self.linear_regression_model()
+        target_col = elements.columns[-1]
+        lr_model.fit(elements.drop(columns=[target_col]), elements[target_col])
+        preds = lr_model.predict(elements.drop(columns=[target_col]))
+        mse = mean_squared_error(preds, elements[target_col])
+        return lr_model, mse
 
     # Split a dataset based on an attribute and an attribute value
     def split_dataset_for_cal_val(self, col, value_to_split, dataset):
