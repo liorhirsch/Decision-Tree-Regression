@@ -48,7 +48,6 @@ class DecisionTree():
         return tn
 
     def try_all_splits_for_col(self, X, Y, prev_mse):
-        # TODO merge X,Y
         dataset = pd.concat([X,Y], axis = 1)
         best_mse_val = prev_mse
         best_split = ()
