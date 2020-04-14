@@ -1,116 +1,90 @@
 import numpy as np
 import pandas as pd
 from sklearn.linear_model._base import LinearModel
-from sklearn.metrics import mean_squared_error
 
-from src.TreeNode import TreeNode
+from src.DataTypesHandlers.CategoricalHandler import CategoricalHandler
+from src.DataTypesHandlers.NumberHandler import NumberHandler
+from src.TreeNodes.BaseTreeNode import BaseTreeNode
+from src.TreeNodes.TreeNodeNumerical import TreeNodeNumerical
+from src.utils import fit_predict_lr_model, get_data_without_categorical_cols
 
 
 class DecisionTree():
     linear_regression_model: LinearModel
     min_elememnts_in_node: int
 
-    def __init__(self, linear_regression_model, min_elememnts_in_node = 5):
+    def __init__(self, linear_regression_model, min_elememnts_in_node=5):
         self.linear_regression_model = linear_regression_model
         self.min_elememnts_in_node = min_elememnts_in_node
         pass
 
     def fit(self, X, Y):
-        self.root = self.split(X,Y)
+        self.root = self.split(X, Y)
 
     def split(self, X, Y):
-        original_lr = self.linear_regression_model()
-        original_lr.fit(X, Y)
-        preds = original_lr.predict(X)
-        original_mse = mean_squared_error(preds, Y)
-        best_split, best_col, best_col_val, best_linear_regressions = self.try_all_splits_for_col(X, Y, original_mse)
+        original_lr, original_mse = fit_predict_lr_model(X, Y, self.linear_regression_model)
+        best_tn = self.try_all_splits_for_col(X, Y, original_mse)
 
+        if best_tn == None:
+            return BaseTreeNode(None, [], [original_lr], None)
 
+        dataset = pd.concat([X, Y], axis=1)
+        target_col = dataset.columns[-1]
+        for idx in range(len(best_tn.dataset_groups)):
+            curr_dataset = best_tn.dataset_groups[idx]
+            curr_left_x, curr_left_y = self.extract_x_y(curr_dataset, target_col)
+            child_tn = self.split(curr_left_x, curr_left_y)
+            best_tn.children_nodes.append(child_tn)
 
-        if len(best_split) == 0:
-            return
+        return best_tn
 
-        tn = TreeNode(best_col, best_col_val, best_linear_regressions[0], best_linear_regressions[1])
+    def extract_x_y(self, dataset, target_col):
+        dataset_x = dataset.drop(columns=[target_col])
+        dataset_y = dataset[target_col]
+        return dataset_x, dataset_y
 
-        left = best_split[0]
-        target_col = left.columns[-1]
-
-        left_x = left.drop(columns=[target_col])
-        left_y = left[target_col]
-        right = best_split[1]
-        right_x = right.drop(columns=[target_col])
-        right_y = right[target_col]
-
-        left_tn = self.split(left_x, left_y)
-        right_tn = self.split(right_x, right_y)
-
-        tn.left = left_tn
-        tn.right = right_tn
-
-        return tn
-
-    def try_all_splits_for_col(self, X, Y, prev_mse):
-        dataset = pd.concat([X,Y], axis = 1)
+    def try_all_splits_for_col(self, X, Y, prev_mse) -> BaseTreeNode:
+        dataset = pd.concat([X, Y], axis=1)
         best_mse_val = prev_mse
-        best_split = ()
-        best_col = -1
-        best_col_val = 0
-        best_linear_regressions = ()
+        best_tn = None
+
+        number_handler = NumberHandler(dataset, self.linear_regression_model, self.min_elememnts_in_node)
+        categorical_handler = CategoricalHandler(dataset, self.linear_regression_model, self.min_elememnts_in_node)
 
         for col in X.columns:
-            for index, row in dataset.iterrows():
-                split_value = row[col]
+            tn = None
+            if X[col].dtype == np.int64 or X[col].dtype == np.float64:
+                chosen_linear_regression, chosen_mse_val, best_split, chosen_col_val = number_handler.split(col)
+                if len(best_split) > 0:
+                    tn = number_handler.build_tree_node(chosen_col_val, best_split, chosen_linear_regression, col)
 
-                left, right = self.split_dataset_for_cal_val(col, split_value, dataset)
+            else:
+                groups_to_lr_model,  chosen_mse_val, group_to_dataset  = categorical_handler.split(col)
 
-                if (len(left) < self.min_elememnts_in_node or
-                    len(right) < self.min_elememnts_in_node):
-                    continue
+                if group_to_dataset is not None and len(group_to_dataset) > 0:
+                    tn = categorical_handler.build_tree_node(groups_to_lr_model, group_to_dataset, col)
 
-                left_lr, left_mse = self.fit_lr_model(left)
-                right_lr, right_mse = self.fit_lr_model(right)
+            if tn is not None and best_mse_val > chosen_mse_val:
+                best_tn = tn
+                best_mse_val = chosen_mse_val
 
-                weighted_mse = (len(right) * right_mse + len(left) * left_mse) / len (dataset)
-
-                if weighted_mse < best_mse_val:
-                    best_mse_val = weighted_mse
-                    best_split = (left, right)
-                    best_col = col
-                    best_col_val = split_value
-                    best_linear_regressions = (left_lr, right_lr)
-        return best_split, best_col, best_col_val, best_linear_regressions
-
-    def fit_lr_model(self, elements):
-        lr_model = self.linear_regression_model()
-        target_col = elements.columns[-1]
-        lr_model.fit(elements.drop(columns=[target_col]), elements[target_col])
-        preds = lr_model.predict(elements.drop(columns=[target_col]))
-        mse = mean_squared_error(preds, elements[target_col])
-        return lr_model, mse
-
-    # Split a dataset based on an attribute and an attribute value
-    def split_dataset_for_cal_val(self, col, value_to_split, dataset):
-        left = dataset[dataset[col] < value_to_split]
-        right = dataset[dataset[col] > value_to_split]
-        return left, right
+        return best_tn
 
     def predict(self, x):
-        return [self.find_leaf_node(row, self.root) for i, row in x.iterrows()]
+        x_to_pred = get_data_without_categorical_cols(x)
+        return [self.find_leaf_node(row, x_to_pred.loc[i], self.root) for i, row in x.iterrows()]
 
+    def find_leaf_node(self, x, x_to_pred, node: BaseTreeNode):
+        lr_model, child_node = node.get_match_lr_child(x)
 
-    def find_leaf_node(self, x, node:TreeNode):
-        if x[node.col] < node.col_val:
-            if node.left is None:
-                return node.linear_regression_left.predict([x])
+        if child_node is None:
+            if lr_model is None:
+                return
             else:
-                return self.find_leaf_node(x, node.left)
+                return lr_model.predict([x_to_pred])
         else:
-            if node.right is None:
-                return node.linear_regression_right.predict([x])
+            val = self.find_leaf_node(x, x_to_pred, child_node)
+            if val is None:
+                return lr_model.predict([x_to_pred])
             else:
-                return self.find_leaf_node(x, node.right)
-
-
-
-
-
+                return val
