@@ -23,11 +23,14 @@ class DecisionTree():
 
     def split(self, X, Y):
         original_lr, original_mse = fit_predict_lr_model(X, Y, self.linear_regression_model)
-        best_tn = self.try_all_splits_for_col(X, Y, original_mse)
+        best_tn: BaseTreeNode = self.try_all_splits_for_col(X, Y, original_mse)
 
         if best_tn == None:
-            return BaseTreeNode(None, [], [original_lr], None)
+            btn = BaseTreeNode(None, [], [original_lr], None)
+            btn.self_lr_model = original_lr
+            return btn
 
+        best_tn.self_lr_model = original_lr
         dataset = pd.concat([X, Y], axis=1)
         target_col = dataset.columns[-1]
         for idx in range(len(best_tn.dataset_groups)):
@@ -59,7 +62,7 @@ class DecisionTree():
                     tn = number_handler.build_tree_node(chosen_col_val, best_split, chosen_linear_regression, col)
 
             else:
-                groups_to_lr_model,  chosen_mse_val, group_to_dataset  = categorical_handler.split(col)
+                groups_to_lr_model, chosen_mse_val, group_to_dataset = categorical_handler.split(col)
 
                 if group_to_dataset is not None and len(group_to_dataset) > 0:
                     tn = categorical_handler.build_tree_node(groups_to_lr_model, group_to_dataset, col)
@@ -79,7 +82,7 @@ class DecisionTree():
 
         if child_node is None:
             if lr_model is None:
-                return
+                return node.self_lr_model.predict([x_to_pred])
             else:
                 return lr_model.predict([x_to_pred])
         else:

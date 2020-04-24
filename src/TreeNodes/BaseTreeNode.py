@@ -9,6 +9,7 @@ class BaseTreeNode():
     dataset_groups: List[pd.DataFrame]
     lr_models: List[LinearModel]
     children_nodes: List['BaseTreeNode']
+    self_lr_model: LinearModel
 
     def __init__(self, value, dataset_groups, lr_models, col) -> None:
         self.value = value
