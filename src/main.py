@@ -51,39 +51,40 @@ def check_tree_height(node: BaseTreeNode):
 
 #
 # datas = [load_servo_data(), load_airfoil_data(), load_3d_spatial(), load_Concrete_Data(), load_qsar_aquatic_toxicity()]
-datas = [load_machine()]
-leaf_size = range(5,16,5)
-lr_models = [Ridge, LinearRegression, SGDRegressor]
-tests = []
-for idx, data in enumerate(datas):
-    curr_dataset_test = []
-    print("===========================================================")
-    target_col = data.columns[-1]
-    X = data.drop(columns=target_col)
-    Y = data[target_col]
-    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.3)
-
-    for curr_leaf_size in leaf_size:
-        for curr_lr_model in lr_models:
-            dt = DecisionTree(curr_lr_model, curr_leaf_size)
-            dt.fit(x_train, y_train)
-
-            if (dt.root is not None):
-                max_height = check_tree_height(dt.root)
-                preds = dt.predict(x_test)
-                # print("Dataset {}, leaf num {}, lr_model {} ".format(str(idx), str(curr_leaf_size), str(curr_lr_model)))
-                mse_tree = mean_squared_error(y_test, preds)
-                # print("With Decision Tree: ", mse_tree)
-                _, original_mse = fit_predict_lr_model(X, Y, curr_lr_model)
-
-                # print("Without tree: ", original_mse)
-                # print("-------------------------------------------------------")
-                curr_dataset_test.append((curr_leaf_size, curr_lr_model, mse_tree, original_mse))
-            else:
-                print("No Tree")
-
-    tests.append(curr_dataset_test)
-
-
-
-
+# datas = [load_machine()]
+# leaf_size = range(5,16,5)
+# lr_models = [Ridge, LinearRegression, SGDRegressor]
+# tests = []
+# for idx, data in enumerate(datas):
+#     curr_dataset_test = []
+#     print("===========================================================")
+#     target_col = data.columns[-1]
+#     X = data.drop(columns=target_col)
+#     X.columns = X.columns.map(str)
+#     Y = data[target_col]
+#     x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.3)
+#
+#     for curr_leaf_size in leaf_size:
+#         for curr_lr_model in lr_models:
+#             dt = DecisionTree(curr_lr_model, curr_leaf_size)
+#             dt.fit(x_train, y_train)
+#
+#             if (dt.root is not None):
+#                 max_height = check_tree_height(dt.root)
+#                 preds = dt.predict(x_test)
+#                 # print("Dataset {}, leaf num {}, lr_model {} ".format(str(idx), str(curr_leaf_size), str(curr_lr_model)))
+#                 mse_tree = mean_squared_error(y_test, preds)
+#                 # print("With Decision Tree: ", mse_tree)
+#                 _, original_mse = fit_predict_lr_model(X, Y, curr_lr_model)
+#
+#                 # print("Without tree: ", original_mse)
+#                 # print("-------------------------------------------------------")
+#                 curr_dataset_test.append((curr_leaf_size, curr_lr_model, mse_tree, original_mse))
+#             else:
+#                 print("No Tree")
+#
+#     tests.append(curr_dataset_test)
+#
+#
+#
+#

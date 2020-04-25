@@ -6,6 +6,6 @@ from src.TreeNodes.BaseTreeNode import BaseTreeNode
 class TreeNodeNumerical(BaseTreeNode):
     def get_match_lr_child(self, row):
         if row[self.col] < self.value:
-            return self.lr_models[0], self.children_nodes[0]
+            return self.lr_models[0], self.children_nodes[0], self.dataset_groups[0]
         else:
-            return self.lr_models[1], self.children_nodes[1]
+            return self.lr_models[1], self.children_nodes[1], self.dataset_groups[1]

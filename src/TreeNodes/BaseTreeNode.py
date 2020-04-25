@@ -19,4 +19,4 @@ class BaseTreeNode():
         self.children_nodes = []
 
     def get_match_lr_child(self, row):
-        return self.lr_models[0], None
+        return self.lr_models[0], None, None

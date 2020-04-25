@@ -6,7 +6,7 @@ from src.DataTypesHandlers.CategoricalHandler import CategoricalHandler
 from src.DataTypesHandlers.NumberHandler import NumberHandler
 from src.TreeNodes.BaseTreeNode import BaseTreeNode
 from src.TreeNodes.TreeNodeNumerical import TreeNodeNumerical
-from src.utils import fit_predict_lr_model, get_data_without_categorical_cols
+from src.utils import fit_predict_lr_model, get_data_without_categorical_cols, sort_columns_names_and_get_dummies
 
 
 class DecisionTree():
@@ -73,21 +73,46 @@ class DecisionTree():
 
         return best_tn
 
-    def predict(self, x):
-        x_to_pred = get_data_without_categorical_cols(x)
-        return [self.find_leaf_node(row, x_to_pred.loc[i], self.root) for i, row in x.iterrows()]
+    def get_all_columns_of_datasets(self, datasets):
 
-    def find_leaf_node(self, x, x_to_pred, node: BaseTreeNode):
-        lr_model, child_node = node.get_match_lr_child(x)
+        target_col = datasets[0].columns[-1]
+        datasets_without_target_col = list(map(lambda d: d.drop(columns=[target_col]), datasets))
+
+        all_columns = np.array(list(map(lambda d: pd.get_dummies(d).columns, datasets_without_target_col))).flatten()
+        all_columns = list(map(lambda c: str(c), all_columns))
+        return sorted(np.unique(all_columns))
+        # return np.unique(np.array(list(map(lambda d: d.columns, deatasets))).flatten())
+
+    def predict(self, x):
+        # x_to_pred = get_data_without_categorical_cols(x)
+
+        return [self.find_leaf_node(row, x.loc[i], self.root,
+                                    self.get_all_columns_of_datasets(self.root.dataset_groups)) for i, row in
+                x.iterrows()]
+
+    def find_leaf_node(self, x, x_to_pred, node: BaseTreeNode, lr_model_columns):
+        lr_model, child_node, child_dataset = node.get_match_lr_child(x)
 
         if child_node is None:
             if lr_model is None:
-                return node.self_lr_model.predict([x_to_pred])
+                return node.self_lr_model.predict(prep_x_to_predict(x_to_pred, lr_model_columns).values)
             else:
-                return lr_model.predict([x_to_pred])
+                return lr_model.predict(prep_x_to_predict(x_to_pred, lr_model_columns).values)
         else:
-            val = self.find_leaf_node(x, x_to_pred, child_node)
+            val = self.find_leaf_node(x, x_to_pred, child_node,
+                                      self.get_all_columns_of_datasets([child_dataset]))
             if val is None:
-                return lr_model.predict([x_to_pred])
+                return lr_model.predict(prep_x_to_predict(x_to_pred, lr_model_columns).values)
             else:
                 return val
+
+def prep_x_to_predict(x, columns):
+    x_dum = pd.get_dummies(pd.DataFrame([x.values], columns=x.keys()))
+    columns_that_was_in_train = x_dum.columns[list(map(lambda x: x in columns ,map(str,x_dum.columns)))]
+    x_dum.columns = x_dum.columns.map(str)
+    columns_that_was_in_train = columns_that_was_in_train.map(str)
+    x_to_pred = pd.DataFrame(x_dum[columns_that_was_in_train], columns=columns)
+    return x_to_pred.fillna(0)
+
+
+
